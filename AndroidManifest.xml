@@ -13,7 +13,8 @@
         android:theme="@style/AppTheme" >
         <activity
             android:name=".Home"
-            android:label="@string/title_activity_home" >
+            android:label="@string/title_activity_home" 
+            android:theme="@android:style/Theme.NoTitleBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
