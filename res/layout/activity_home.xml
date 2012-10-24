@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -31,15 +32,6 @@
             android:textAppearance="?android:attr/textAppearanceLarge"
             android:textColor="@android:color/primary_text_light" />
     </RelativeLayout>
-
-
-    <TextView
-	   android:id="@+id/category_1"
-	   android:layout_width="wrap_content"
-	   android:layout_height="wrap_content"
-	   android:text="@string/category_placeholder"
-	   android:textAppearance="?android:attr/textAppearanceLarge"
-	   android:textColor="@android:color/black"/>
 
     <ListView
         android:layout_width="match_parent"
