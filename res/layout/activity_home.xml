@@ -38,10 +38,15 @@
         android:id="@+id/list_pull__scroller"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        ptr:ptrAnimationStyle="flip" >
+        ptr:ptrAnimationStyle="flip"
+        ptr:ptrHeaderTextColor="@android:color/darker_gray" >
         
-
-		
+        <LinearLayout
+            android:id="@+id/list"
+		    android:layout_width="match_parent"
+		    android:layout_height="wrap_content"
+		    android:orientation="vertical"/>
+            	
     </com.handmark.pulltorefresh.library.PullToRefreshScrollView>
     
     
