@@ -34,17 +34,13 @@
     </RelativeLayout>
 
     <com.handmark.pulltorefresh.library.PullToRefreshScrollView 
+        xmlns:ptr="http://schemas.android.com/apk/res-auto"
         android:id="@+id/list_pull__scroller"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        ptr:ptrAnimationStyle="flip" >
         
-        <LinearLayout
-       		android:id="@+id/list"
-    	    android:layout_width="match_parent"
-       	 	android:layout_height="wrap_content"
-       	 	android:orientation="vertical" >
 
-		</LinearLayout>
 		
     </com.handmark.pulltorefresh.library.PullToRefreshScrollView>
     
