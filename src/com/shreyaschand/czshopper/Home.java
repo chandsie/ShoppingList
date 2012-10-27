@@ -34,26 +34,25 @@ public class Home extends Activity implements OnClickListener {
 	LinearLayout itemsListView;
 	LayoutInflater inflater;
 	PullToRefreshScrollView pullToRefreshView;
-	ConnectivityManager connMgr;
+	ConnectivityManager connManager;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_home);
+		
 		findViewById(R.id.add_button).setOnClickListener(this);
+		
 		itemsListView = (LinearLayout) findViewById(R.id.list);
 
-		// Pre-fetch and save the inflater to be used to add new list elements
+		// Pre-fetch and save the inflater; used to create layout for new list elements
 		inflater = (LayoutInflater) getSystemService(Activity.LAYOUT_INFLATER_SERVICE);
-		// Pre-fetch and save the connection manager to check connectivity when
-		// refreshing
-		connMgr = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+		// Pre-fetch and save the connection manager; used to check connectivity when refreshing
+		connManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
 
 		pullToRefreshView = (PullToRefreshScrollView) findViewById(R.id.list_pull__scroller);
-		pullToRefreshView
-				.setOnRefreshListener(new OnRefreshListener<ScrollView>() {
-					public void onRefresh(
-							PullToRefreshBase<ScrollView> refreshView) {
+		pullToRefreshView.setOnRefreshListener(new OnRefreshListener<ScrollView>() {
+					public void onRefresh(PullToRefreshBase<ScrollView> refreshView) {
 						new GetDataTask().execute(true);
 					}
 				});
@@ -61,8 +60,7 @@ public class Home extends Activity implements OnClickListener {
 		new GetDataTask().execute(false);
 	}
 
-	private class GetDataTask extends
-			AsyncTask<Boolean, Void, ArrayList<HashMap<String, String>>> {
+	private class GetDataTask extends AsyncTask<Boolean, Void, ArrayList<HashMap<String, String>>> {
 
 		@Override
 		protected void onPostExecute(ArrayList<HashMap<String, String>> items) {
@@ -81,12 +79,11 @@ public class Home extends Activity implements OnClickListener {
 		protected ArrayList<HashMap<String, String>> doInBackground(Boolean... networkRefresh) {
 			
 			ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String, String>>();
-			NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
+			NetworkInfo networkInfo = connManager.getActiveNetworkInfo();
 			JSONArray jsonData = null;
 			
 			if (networkRefresh[0] && networkInfo != null && networkInfo.isConnected()) {
-				// Fetch updates from server if asked to do so and if network is
-				// available
+				// Fetch updates from server if asked to do so and if network is vailable
 				try {
 					URLConnection conn = new URL("http://czshopper.herokuapp.com/items.json").openConnection();
 					conn.setRequestProperty("Accept", "application/json");
