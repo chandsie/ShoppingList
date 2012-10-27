@@ -3,8 +3,8 @@ package com.shreyaschand.czshopper;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -23,25 +23,26 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.handmark.pulltorefresh.library.PullToRefreshBase;
 import com.handmark.pulltorefresh.library.PullToRefreshBase.OnRefreshListener;
 import com.handmark.pulltorefresh.library.PullToRefreshScrollView;
 
-public class Home extends Activity implements OnClickListener {
+public class Home extends Activity {
 
-	LinearLayout itemsListView;
-	LayoutInflater inflater;
-	PullToRefreshScrollView pullToRefreshView;
-	ConnectivityManager connManager;
+	private LinearLayout itemsListView;
+	private LayoutInflater inflater;
+	private PullToRefreshScrollView pullToRefreshView;
+	private ConnectivityManager connManager;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_home);
 		
-		findViewById(R.id.add_button).setOnClickListener(this);
+		findViewById(R.id.add_button).setOnClickListener(new AddItemListener());
 		
 		itemsListView = (LinearLayout) findViewById(R.id.list);
 
@@ -57,7 +58,7 @@ public class Home extends Activity implements OnClickListener {
 					}
 				});
 
-		new GetDataTask().execute(false);
+//		new GetDataTask().execute(false);
 	}
 
 	private class GetDataTask extends AsyncTask<Boolean, Void, ArrayList<HashMap<String, String>>> {
@@ -69,8 +70,36 @@ public class Home extends Activity implements OnClickListener {
 			super.onPostExecute(items);
 
 			for(HashMap<String, String> item : items) {
+				//find category linear layout
 				String category = item.get("category");
-				//find category linear layout and add item to it
+				View categoryLayout = itemsListView.findViewWithTag(category);
+				// if not found, create a new layout for the category
+				if (categoryLayout == null) {
+					 categoryLayout = inflater.inflate(R.layout.category_group, null);
+					 categoryLayout.setTag(category);
+					 
+					 LinearLayout categoryHeader = (LinearLayout) inflater.inflate(R.layout.list_item, null);
+					 categoryHeader.getChildAt(0).setVisibility(View.GONE);
+					 ((TextView)categoryHeader.getChildAt(1)).setText(category);
+					 
+					 ((LinearLayout)categoryLayout).addView(categoryHeader);
+					 itemsListView.addView(categoryLayout);
+				}
+				
+				// if the items isn't already in the list, insert it
+				String id = item.get("id");
+				if (categoryLayout.findViewWithTag(id) == null) {
+					LinearLayout itemLayout = (LinearLayout) inflater.inflate(R.layout.list_item, null);
+					itemLayout.setTag(id);
+					
+					itemLayout.getChildAt(0).setOnClickListener(new CheckItemListener());
+					
+					TextView tView = ((TextView)itemLayout.getChildAt(1));
+					tView.setText(item.get("name"));
+					tView.setOnClickListener(new EditItemListener());
+					
+					((LinearLayout) categoryLayout).addView(itemLayout);
+				}
 			}
 
 		}
@@ -83,9 +112,10 @@ public class Home extends Activity implements OnClickListener {
 			JSONArray jsonData = null;
 			
 			if (networkRefresh[0] && networkInfo != null && networkInfo.isConnected()) {
-				// Fetch updates from server if asked to do so and if network is vailable
+				// Fetch updates from server if asked to do so and if network is available
 				try {
-					URLConnection conn = new URL("http://czshopper.herokuapp.com/items.json").openConnection();
+					HttpURLConnection conn = (HttpURLConnection) new URL("http://czshopper.herokuapp.com/items.json").openConnection();
+					conn.setRequestMethod("GET");
 					conn.setRequestProperty("Accept", "application/json");
 					conn.setRequestProperty("X-CZ-Authorization", "quqSxtRqyBowMcz46qKr");
 					conn.connect();
@@ -99,31 +129,46 @@ public class Home extends Activity implements OnClickListener {
 				} catch (JSONException e) {
 					// Bad stuff happened. Probably not something I did.
 				}
-				// Convert the JSONArray into a regular ArrayList of HashMaps
-				// to allow get method (web vs. db) independent processing
-				for (int i = 0; i != jsonData.length(); i++) {
-					HashMap<String, String> item = new HashMap<String, String>();
-					try {
-						JSONObject jsonObject = jsonData.getJSONObject(i);
-						item.put("id", jsonObject.getString("id"));
-						item.put("category", jsonObject.getString("category"));
-						item.put("name", jsonObject.getString("name"));
-					} catch (JSONException e) {
-						// bad stuff happened. don't make this happen.
-					}
-					result.add(item);
-				}
+				
 			} else {
 				// Use saved values from db
 			}
-
+			// Convert the JSONArray into a regular ArrayList of HashMaps
+			// to allow get method (web vs. db) independent processing
+			for (int i = 0; i != jsonData.length(); i++) {
+				HashMap<String, String> item = new HashMap<String, String>();
+				try {
+					JSONObject jsonObject = jsonData.getJSONObject(i);
+					item.put("id", jsonObject.getString("id"));
+					item.put("category", jsonObject.getString("category"));
+					item.put("name", jsonObject.getString("name"));
+				} catch (JSONException e) {
+					// bad stuff happened. don't make this happen.
+				}
+				result.add(item);
+			}
+			
 			return result;
 		}
 	}
 
-	public void onClick(View v) {
-		Toast.makeText(this, "Add New Item", Toast.LENGTH_LONG).show();
-		// startActivity(new Intent(this, AddListItem.class));
-
+	private class AddItemListener implements OnClickListener {
+		public void onClick(View v) {
+			Toast.makeText(Home.this, "Add New Item", Toast.LENGTH_SHORT).show();
+			// startActivity(new Intent(this, AddListItem.class));
+		}
+	}
+	
+	private class EditItemListener implements OnClickListener{
+		public void onClick(View v) {
+				Toast.makeText(Home.this, "Editing Item " + ((View) v.getParent()).getTag(), Toast.LENGTH_SHORT).show();
+		}
+	}
+	
+	private class CheckItemListener implements OnClickListener{
+		public void onClick(View v) {
+				LinearLayout itemLayout = (LinearLayout) v.getParent();
+				Toast.makeText(Home.this, "Checked off Item " + ((View) v.getParent()).getTag(), Toast.LENGTH_SHORT).show();
+		}
 	}
 }
