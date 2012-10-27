@@ -14,6 +14,7 @@ import org.json.JSONObject;
 
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Paint;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
@@ -21,6 +22,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.widget.CheckBox;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -114,7 +116,8 @@ public class Home extends Activity {
 			if (networkRefresh[0] && networkInfo != null && networkInfo.isConnected()) {
 				// Fetch updates from server if asked to do so and if network is available
 				try {
-					HttpURLConnection conn = (HttpURLConnection) new URL("http://czshopper.herokuapp.com/items.json").openConnection();
+					URL url = new URL("http://czshopper.herokuapp.com/items.json");
+					HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 					conn.setRequestMethod("GET");
 					conn.setRequestProperty("Accept", "application/json");
 					conn.setRequestProperty("X-CZ-Authorization", "quqSxtRqyBowMcz46qKr");
@@ -161,14 +164,23 @@ public class Home extends Activity {
 	
 	private class EditItemListener implements OnClickListener{
 		public void onClick(View v) {
-				Toast.makeText(Home.this, "Editing Item " + ((View) v.getParent()).getTag(), Toast.LENGTH_SHORT).show();
+			Toast.makeText(Home.this, "Editing Item " + ((View) v.getParent()).getTag(), Toast.LENGTH_SHORT).show();
 		}
 	}
 	
 	private class CheckItemListener implements OnClickListener{
 		public void onClick(View v) {
-				LinearLayout itemLayout = (LinearLayout) v.getParent();
-				Toast.makeText(Home.this, "Checked off Item " + ((View) v.getParent()).getTag(), Toast.LENGTH_SHORT).show();
+			LinearLayout itemLayout = (LinearLayout) v.getParent();
+			TextView textView = (TextView) itemLayout.getChildAt(1);
+			
+			if (((CheckBox) v).isChecked()){
+				// Apply the strike_thru styling bit mask to strike off checked items in the list
+				textView.setPaintFlags(textView.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
+			} else {
+				// Apply the inverse of the strike_thru styling bit mask to unstrike an item
+				textView.setPaintFlags(textView.getPaintFlags() & ~Paint.STRIKE_THRU_TEXT_FLAG);
+			}
+			Toast.makeText(Home.this, "Checked off Item " + ((View) v.getParent()).getTag(), Toast.LENGTH_SHORT).show();
 		}
 	}
 }
