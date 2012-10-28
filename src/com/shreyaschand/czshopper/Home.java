@@ -15,6 +15,7 @@ import org.json.JSONObject;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Paint;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -35,10 +36,13 @@ import com.handmark.pulltorefresh.library.PullToRefreshScrollView;
 
 public class Home extends Activity {
 
-	public static final String FILENAME = "items.json";
+	private static final String FILENAME = "items.json";
 	private static final String URL = "http://czshopper.herokuapp.com/items";
+	public static final String ITEM_MESSAGE = "com.shreyaschand.czshopper.UPDATE_ITEM_MESSAGE";
 	private static final int HTTP_OK = 200;
-			
+	private static final int ADD_ITEM_REQUEST = 41;
+	private static final int UPDATE_ITEM_REQUEST = 42;
+
 	private LinearLayout itemsListView;
 	private LayoutInflater inflater;
 	private PullToRefreshScrollView pullToRefreshView;
@@ -140,7 +144,7 @@ public class Home extends Activity {
 
 			return result;
 		}
-		
+
 		protected void onProgressUpdate(Integer... errorID){
 			Toast.makeText(Home.this, getString(errorID[0]), Toast.LENGTH_SHORT).show();
 		}
@@ -165,11 +169,14 @@ public class Home extends Activity {
 					categoryLayout = (LinearLayout) inflater.inflate(R.layout.category_group, null);
 					categoryLayout.setTag(category);
 
-					// inflate the item view, remove the checkbox and button and then set the category text
+					// inflate an item view,
 					LinearLayout categoryHeader = (LinearLayout) inflater.inflate(R.layout.list_item, null);
+					// remove the checkbox 
 					categoryHeader.removeViewAt(0);
+					// remove the button
 					categoryHeader.removeViewAt(1);
-					// since the checkbox was removed, the textview is the first element in the layout
+					// set the category text
+					// the textview is the only element in the layout, thus at index 0
 					((TextView)categoryHeader.getChildAt(0)).setText(category);
 
 					categoryLayout.addView(categoryHeader);
@@ -186,7 +193,7 @@ public class Home extends Activity {
 				TextView tView = ((TextView)itemLayout.getChildAt(1));
 				tView.setText(item.get("name"));
 				tView.setOnClickListener(new EditItemListener());
-				
+
 				itemLayout.getChildAt(2).setOnClickListener(new DeleteItemListener());
 
 				((LinearLayout) categoryLayout).addView(itemLayout);
@@ -199,14 +206,37 @@ public class Home extends Activity {
 
 	private class AddItemListener implements OnClickListener {
 		public void onClick(View v) {
-			Toast.makeText(Home.this, "Add New Item", Toast.LENGTH_SHORT).show();
-			// startActivity(new Intent(this, AddListItem.class));
+			Intent intent = new Intent(Home.this, UpdateList.class);
+			intent.putExtra(Home.ITEM_MESSAGE, (String) null);
+			startActivityForResult(intent, ADD_ITEM_REQUEST);
 		}
 	}
 
 	private class EditItemListener implements OnClickListener{
 		public void onClick(View v) {
-			Toast.makeText(Home.this, "Editing Item " + ((View) v.getParent()).getTag(), Toast.LENGTH_SHORT).show();
+			LinearLayout itemLayout = (LinearLayout) v.getParent();
+			String itemID = (String) itemLayout.getTag();
+			String itemName = (String) ((TextView)itemLayout.getChildAt(1)).getText();
+			String itemCategory = (String) ((LinearLayout)itemLayout.getParent()).getTag();
+			String[] item = {itemID, itemName, itemCategory};
+
+			Intent intent = new Intent(Home.this, UpdateList.class);
+			intent.putExtra(Home.ITEM_MESSAGE, item);
+			startActivityForResult(intent, UPDATE_ITEM_REQUEST);
+		}
+	}
+
+	protected void onActivityResult(int requestCode, int resultCode, Intent data){
+		if(requestCode == ADD_ITEM_REQUEST) {
+			if (resultCode != RESULT_CANCELED){
+
+			}
+		} else if(resultCode == UPDATE_ITEM_REQUEST){
+			if (resultCode == UpdateList.ACTION_DELETE){
+
+			} else if (resultCode == UpdateList.ACTION_UPDATE) {
+
+			}
 		}
 	}
 
@@ -228,17 +258,17 @@ public class Home extends Activity {
 			}
 		}
 	}
-	
+
 	private class DeleteItemListener implements OnClickListener{
 		public void onClick(View v) {
 			new DeleteItemTask().execute((View) v.getParent());
 		}
 	}
-	
+
 	private class DeleteItemTask extends AsyncTask<View, Integer, Boolean>{
 
 		View item;
-		
+
 		@Override
 		protected Boolean doInBackground(View... view) {
 			item = view[0];
@@ -264,11 +294,11 @@ public class Home extends Activity {
 			}
 			return false;
 		}
-		
+
 		protected void onProgressUpdate(Integer... errorID){
 			Toast.makeText(Home.this, getString(errorID[0]), Toast.LENGTH_SHORT).show();
 		}
-		
+
 		protected void onPostExecute(Boolean result){
 			if(result){
 				LinearLayout category = (LinearLayout)item.getParent();
@@ -279,6 +309,6 @@ public class Home extends Activity {
 				}
 			}
 		}
-		
+
 	}
 }

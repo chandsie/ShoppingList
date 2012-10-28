@@ -28,7 +28,7 @@
             android:layout_height="wrap_content"
             android:layout_alignParentLeft="true"
             android:layout_centerVertical="true"
-            android:text="@string/title"
+            android:text="@string/title_home_activity"
             android:textAppearance="?android:attr/textAppearanceLarge"
             android:textColor="@android:color/primary_text_light" />
     </RelativeLayout>
