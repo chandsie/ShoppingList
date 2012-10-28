@@ -36,7 +36,9 @@ import com.handmark.pulltorefresh.library.PullToRefreshScrollView;
 public class Home extends Activity {
 
 	public static final String FILENAME = "items.json";
-	private static final String URL = "http://czshopper.herokuapp.com/items.json";
+	private static final String URL = "http://czshopper.herokuapp.com/items";
+	private static final int HTTP_OK = 200;
+			
 	private LinearLayout itemsListView;
 	private LayoutInflater inflater;
 	private PullToRefreshScrollView pullToRefreshView;
@@ -66,7 +68,7 @@ public class Home extends Activity {
 		new GetDataTask().execute(false);
 	}
 
-	private class GetDataTask extends AsyncTask<Boolean, Void, ArrayList<HashMap<String, String>>> {
+	private class GetDataTask extends AsyncTask<Boolean, Integer, ArrayList<HashMap<String, String>>> {
 
 		@Override
 		protected ArrayList<HashMap<String, String>> doInBackground(Boolean... networkRefresh) {
@@ -78,7 +80,8 @@ public class Home extends Activity {
 			if (networkRefresh[0] && networkInfo != null && networkInfo.isConnected()) {
 				// Fetch updates from server if asked to do so and if network is available
 				try {
-					HttpURLConnection conn = (HttpURLConnection) new URL(URL).openConnection();
+					HttpURLConnection conn = (HttpURLConnection) new URL(URL+".json").openConnection();
+					conn.setConnectTimeout(5 * 1000);
 					conn.setRequestMethod("GET");
 					conn.setRequestProperty("Accept", "application/json");
 					conn.setRequestProperty("X-CZ-Authorization", "quqSxtRqyBowMcz46qKr");
@@ -91,7 +94,8 @@ public class Home extends Activity {
 					outFile.write(response.getBytes());
 					outFile.close();
 				} catch (IOException ioe) {
-					Toast.makeText(Home.this, getString(R.string.network_error), Toast.LENGTH_SHORT).show();
+					publishProgress(R.string.network_error);
+					return null;
 				}
 			} else {
 				// Use saved values from db
@@ -101,6 +105,8 @@ public class Home extends Activity {
 					inFile.close();
 				} catch (IOException e) {
 					// Error finding, reading or closing the file.
+					//publishProgress(R.string.file?_error);
+					//return null;
 				}
 			}
 
@@ -111,7 +117,8 @@ public class Home extends Activity {
 					jsonData = new JSONArray(response);
 				}catch (JSONException e) {
 					// Bad stuff happened. Probably not something I did.
-					Toast.makeText(Home.this, getString(R.string.json_error), Toast.LENGTH_SHORT).show();
+					publishProgress(R.string.json_error);
+					return null;
 				}
 				// Convert the JSONArray into a regular ArrayList of HashMaps
 				// to allow get method (web vs. db) independent processing
@@ -124,13 +131,18 @@ public class Home extends Activity {
 						item.put("name", jsonObject.getString("name"));
 					} catch (JSONException e) {
 						// bad stuff happened. don't make this happen.
-						Toast.makeText(Home.this, getString(R.string.json_error), Toast.LENGTH_SHORT).show();
+						publishProgress(R.string.json_error);
+						// keep going, maybe other items won't throw an exception
 					}
 					result.add(item);
 				}
 			}
 
 			return result;
+		}
+		
+		protected void onProgressUpdate(Integer... errorID){
+			Toast.makeText(Home.this, getString(errorID[0]), Toast.LENGTH_SHORT).show();
 		}
 
 		@Override
@@ -139,6 +151,9 @@ public class Home extends Activity {
 			pullToRefreshView.onRefreshComplete();
 			super.onPostExecute(items);
 
+			if(items == null || items.size() == 0) {
+				return;
+			}
 			// Clear all entries in the view
 			itemsListView.removeAllViews();
 
@@ -211,14 +226,59 @@ public class Home extends Activity {
 				itemLayout.getChildAt(2).setVisibility(View.GONE);
 				textView.setClickable(true);
 			}
-			Toast.makeText(Home.this, "Checked off Item " + ((View) v.getParent()).getTag(), Toast.LENGTH_SHORT).show();
 		}
 	}
 	
 	private class DeleteItemListener implements OnClickListener{
 		public void onClick(View v) {
-			LinearLayout itemLayout = (LinearLayout) v.getParent();
-			Toast.makeText(Home.this, "Deleting Item " + ((View) v.getParent()).getTag(), Toast.LENGTH_SHORT).show();
+			new DeleteItemTask().execute((View) v.getParent());
 		}
+	}
+	
+	private class DeleteItemTask extends AsyncTask<View, Integer, Boolean>{
+
+		View item;
+		
+		@Override
+		protected Boolean doInBackground(View... view) {
+			item = view[0];
+			NetworkInfo networkInfo = connManager.getActiveNetworkInfo();
+			if (networkInfo != null && networkInfo.isConnected()) {
+				// Fetch updates from server if asked to do so and if network is available
+				try {
+					HttpURLConnection conn = (HttpURLConnection) new URL(URL+"/" + item.getTag() + ".json").openConnection();
+					conn.setConnectTimeout(5 * 1000);
+					conn.setRequestMethod("DELETE");
+					conn.setRequestProperty("X-CZ-Authorization", "quqSxtRqyBowMcz46qKr");
+					conn.connect();
+					if(conn.getResponseCode() == HTTP_OK){
+						return true;
+					} else {
+						publishProgress(R.string.delete_error);
+					}
+				} catch (IOException ioe) {
+					publishProgress(R.string.network_error);
+				}
+			} else {
+				publishProgress(R.string.network_error);
+			}
+			return false;
+		}
+		
+		protected void onProgressUpdate(Integer... errorID){
+			Toast.makeText(Home.this, getString(errorID[0]), Toast.LENGTH_SHORT).show();
+		}
+		
+		protected void onPostExecute(Boolean result){
+			if(result){
+				LinearLayout category = (LinearLayout)item.getParent();
+				category.removeView(item);
+				// if the category layout now only contains it's title, delete it
+				if(category.getChildCount() == 1){
+					((LinearLayout)category.getParent()).removeView(category);
+				}
+			}
+		}
+		
 	}
 }

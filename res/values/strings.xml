@@ -5,6 +5,7 @@
     <string name="add">Add</string>
     <string name="network_error">Oops! A network error occured. Please try again later.</string>
     <string name="json_error">Uh oh. An error occurred while processing the list. Please try again later.</string>
+    <string name="delete_error">An error occurred while trying to delete the item. Please try again later.</string>
     <string name="delete">Delete</string>
 
 </resources>
