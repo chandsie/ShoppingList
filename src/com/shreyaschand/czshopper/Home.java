@@ -1,6 +1,7 @@
 package com.shreyaschand.czshopper;
 
 import java.io.BufferedReader;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -34,6 +35,8 @@ import com.handmark.pulltorefresh.library.PullToRefreshScrollView;
 
 public class Home extends Activity {
 
+	public static final String FILENAME = "items.json";
+	private static final String URL = "http://czshopper.herokuapp.com/items.json";
 	private LinearLayout itemsListView;
 	private LayoutInflater inflater;
 	private PullToRefreshScrollView pullToRefreshView;
@@ -43,9 +46,9 @@ public class Home extends Activity {
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_home);
-		
+
 		findViewById(R.id.add_button).setOnClickListener(new AddItemListener());
-		
+
 		itemsListView = (LinearLayout) findViewById(R.id.list);
 
 		// Pre-fetch and save the inflater; used to create layout for new list elements
@@ -55,15 +58,80 @@ public class Home extends Activity {
 
 		pullToRefreshView = (PullToRefreshScrollView) findViewById(R.id.list_pull__scroller);
 		pullToRefreshView.setOnRefreshListener(new OnRefreshListener<ScrollView>() {
-					public void onRefresh(PullToRefreshBase<ScrollView> refreshView) {
-						new GetDataTask().execute(true);
-					}
-				});
+			public void onRefresh(PullToRefreshBase<ScrollView> refreshView) {
+				new GetDataTask().execute(true);
+			}
+		});
 
-//		new GetDataTask().execute(false);
+		new GetDataTask().execute(false);
 	}
 
 	private class GetDataTask extends AsyncTask<Boolean, Void, ArrayList<HashMap<String, String>>> {
+
+		@Override
+		protected ArrayList<HashMap<String, String>> doInBackground(Boolean... networkRefresh) {
+
+			ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String, String>>();
+			NetworkInfo networkInfo = connManager.getActiveNetworkInfo();
+			String response = null;
+
+			if (networkRefresh[0] && networkInfo != null && networkInfo.isConnected()) {
+				// Fetch updates from server if asked to do so and if network is available
+				try {
+					HttpURLConnection conn = (HttpURLConnection) new URL(URL).openConnection();
+					conn.setRequestMethod("GET");
+					conn.setRequestProperty("Accept", "application/json");
+					conn.setRequestProperty("X-CZ-Authorization", "quqSxtRqyBowMcz46qKr");
+					conn.connect();
+					BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+					response = br.readLine();
+					br.close();
+					// Save the JSON for future offline access
+					FileOutputStream outFile = openFileOutput(FILENAME, Context.MODE_PRIVATE);
+					outFile.write(response.getBytes());
+					outFile.close();
+				} catch (IOException ioe) {
+					Toast.makeText(Home.this, getString(R.string.network_error), Toast.LENGTH_SHORT).show();
+				}
+			} else {
+				// Use saved values from db
+				try {
+					BufferedReader inFile = new BufferedReader(new InputStreamReader(openFileInput(FILENAME)));
+					response = inFile.readLine();
+					inFile.close();
+				} catch (IOException e) {
+					// Error finding, reading or closing the file.
+				}
+			}
+
+			if(response != null){
+				// Convert the raw string response into an array of JSON objects
+				JSONArray jsonData = null;
+				try {
+					jsonData = new JSONArray(response);
+				}catch (JSONException e) {
+					// Bad stuff happened. Probably not something I did.
+					Toast.makeText(Home.this, getString(R.string.json_error), Toast.LENGTH_SHORT).show();
+				}
+				// Convert the JSONArray into a regular ArrayList of HashMaps
+				// to allow get method (web vs. db) independent processing
+				for (int i = 0; i != jsonData.length(); i++) {
+					HashMap<String, String> item = new HashMap<String, String>();
+					try {
+						JSONObject jsonObject = jsonData.getJSONObject(i);
+						item.put("id", jsonObject.getString("id"));
+						item.put("category", jsonObject.getString("category"));
+						item.put("name", jsonObject.getString("name"));
+					} catch (JSONException e) {
+						// bad stuff happened. don't make this happen.
+						Toast.makeText(Home.this, getString(R.string.json_error), Toast.LENGTH_SHORT).show();
+					}
+					result.add(item);
+				}
+			}
+
+			return result;
+		}
 
 		@Override
 		protected void onPostExecute(ArrayList<HashMap<String, String>> items) {
@@ -71,87 +139,46 @@ public class Home extends Activity {
 			pullToRefreshView.onRefreshComplete();
 			super.onPostExecute(items);
 
+			// Clear all entries in the view
+			itemsListView.removeAllViews();
+
 			for(HashMap<String, String> item : items) {
-				//find category linear layout
 				String category = item.get("category");
-				View categoryLayout = itemsListView.findViewWithTag(category);
+				LinearLayout categoryLayout = (LinearLayout) itemsListView.findViewWithTag(category);
 				// if not found, create a new layout for the category
 				if (categoryLayout == null) {
-					 categoryLayout = inflater.inflate(R.layout.category_group, null);
-					 categoryLayout.setTag(category);
-					 
-					 LinearLayout categoryHeader = (LinearLayout) inflater.inflate(R.layout.list_item, null);
-					 categoryHeader.getChildAt(0).setVisibility(View.GONE);
-					 ((TextView)categoryHeader.getChildAt(1)).setText(category);
-					 
-					 ((LinearLayout)categoryLayout).addView(categoryHeader);
-					 itemsListView.addView(categoryLayout);
+					categoryLayout = (LinearLayout) inflater.inflate(R.layout.category_group, null);
+					categoryLayout.setTag(category);
+
+					// inflate the item view, remove the checkbox and button and then set the category text
+					LinearLayout categoryHeader = (LinearLayout) inflater.inflate(R.layout.list_item, null);
+					categoryHeader.removeViewAt(0);
+					categoryHeader.removeViewAt(1);
+					// since the checkbox was removed, the textview is the first element in the layout
+					((TextView)categoryHeader.getChildAt(0)).setText(category);
+
+					categoryLayout.addView(categoryHeader);
+					itemsListView.addView(categoryLayout);
 				}
-				
-				// if the items isn't already in the list, insert it
+
+
 				String id = item.get("id");
-				if (categoryLayout.findViewWithTag(id) == null) {
-					LinearLayout itemLayout = (LinearLayout) inflater.inflate(R.layout.list_item, null);
-					itemLayout.setTag(id);
-					
-					itemLayout.getChildAt(0).setOnClickListener(new CheckItemListener());
-					
-					TextView tView = ((TextView)itemLayout.getChildAt(1));
-					tView.setText(item.get("name"));
-					tView.setOnClickListener(new EditItemListener());
-					
-					((LinearLayout) categoryLayout).addView(itemLayout);
-				}
-			}
+				LinearLayout itemLayout =  (LinearLayout) inflater.inflate(R.layout.list_item, null);
+				itemLayout.setTag(id);
 
-		}
+				itemLayout.getChildAt(0).setOnClickListener(new CheckItemListener());
 
-		@Override
-		protected ArrayList<HashMap<String, String>> doInBackground(Boolean... networkRefresh) {
-			
-			ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String, String>>();
-			NetworkInfo networkInfo = connManager.getActiveNetworkInfo();
-			JSONArray jsonData = null;
-			
-			if (networkRefresh[0] && networkInfo != null && networkInfo.isConnected()) {
-				// Fetch updates from server if asked to do so and if network is available
-				try {
-					URL url = new URL("http://czshopper.herokuapp.com/items.json");
-					HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-					conn.setRequestMethod("GET");
-					conn.setRequestProperty("Accept", "application/json");
-					conn.setRequestProperty("X-CZ-Authorization", "quqSxtRqyBowMcz46qKr");
-					conn.connect();
-					BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-					String response = br.readLine();
-					br.close();
-					// Convert the raw string response into an array of JSON objects
-					jsonData = new JSONArray(response);
-				} catch (IOException ioe) {
-					// Network Error. Deal with it.
-				} catch (JSONException e) {
-					// Bad stuff happened. Probably not something I did.
-				}
+				TextView tView = ((TextView)itemLayout.getChildAt(1));
+				tView.setText(item.get("name"));
+				tView.setOnClickListener(new EditItemListener());
 				
-			} else {
-				// Use saved values from db
+				itemLayout.getChildAt(2).setOnClickListener(new DeleteItemListener());
+
+				((LinearLayout) categoryLayout).addView(itemLayout);
+
+
 			}
-			// Convert the JSONArray into a regular ArrayList of HashMaps
-			// to allow get method (web vs. db) independent processing
-			for (int i = 0; i != jsonData.length(); i++) {
-				HashMap<String, String> item = new HashMap<String, String>();
-				try {
-					JSONObject jsonObject = jsonData.getJSONObject(i);
-					item.put("id", jsonObject.getString("id"));
-					item.put("category", jsonObject.getString("category"));
-					item.put("name", jsonObject.getString("name"));
-				} catch (JSONException e) {
-					// bad stuff happened. don't make this happen.
-				}
-				result.add(item);
-			}
-			
-			return result;
+
 		}
 	}
 
@@ -161,26 +188,37 @@ public class Home extends Activity {
 			// startActivity(new Intent(this, AddListItem.class));
 		}
 	}
-	
+
 	private class EditItemListener implements OnClickListener{
 		public void onClick(View v) {
 			Toast.makeText(Home.this, "Editing Item " + ((View) v.getParent()).getTag(), Toast.LENGTH_SHORT).show();
 		}
 	}
-	
+
 	private class CheckItemListener implements OnClickListener{
 		public void onClick(View v) {
 			LinearLayout itemLayout = (LinearLayout) v.getParent();
 			TextView textView = (TextView) itemLayout.getChildAt(1);
-			
+
 			if (((CheckBox) v).isChecked()){
 				// Apply the strike_thru styling bit mask to strike off checked items in the list
 				textView.setPaintFlags(textView.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
+				itemLayout.getChildAt(2).setVisibility(View.VISIBLE);
+				textView.setClickable(false);
 			} else {
 				// Apply the inverse of the strike_thru styling bit mask to unstrike an item
 				textView.setPaintFlags(textView.getPaintFlags() & ~Paint.STRIKE_THRU_TEXT_FLAG);
+				itemLayout.getChildAt(2).setVisibility(View.GONE);
+				textView.setClickable(true);
 			}
 			Toast.makeText(Home.this, "Checked off Item " + ((View) v.getParent()).getTag(), Toast.LENGTH_SHORT).show();
+		}
+	}
+	
+	private class DeleteItemListener implements OnClickListener{
+		public void onClick(View v) {
+			LinearLayout itemLayout = (LinearLayout) v.getParent();
+			Toast.makeText(Home.this, "Deleting Item " + ((View) v.getParent()).getTag(), Toast.LENGTH_SHORT).show();
 		}
 	}
 }
