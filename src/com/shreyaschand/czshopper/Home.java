@@ -36,10 +36,10 @@ import com.handmark.pulltorefresh.library.PullToRefreshScrollView;
 
 public class Home extends Activity {
 
-	private static final String FILENAME = "items.json";
-	private static final String URL = "http://czshopper.herokuapp.com/items";
-	public static final String ITEM_MESSAGE = "com.shreyaschand.czshopper.UPDATE_ITEM_MESSAGE";
-	private static final int HTTP_OK = 200;
+	protected static final String FILENAME = "items.json";
+	protected static final String URL = "http://czshopper.herokuapp.com/items";
+	protected static final String ITEM_MESSAGE = "com.shreyaschand.czshopper.UPDATE_ITEM_MESSAGE";
+	protected static final int HTTP_OK = 200;
 	private static final int ADD_ITEM_REQUEST = 41;
 	private static final int UPDATE_ITEM_REQUEST = 42;
 
@@ -76,7 +76,6 @@ public class Home extends Activity {
 
 		@Override
 		protected ArrayList<HashMap<String, String>> doInBackground(Boolean... networkRefresh) {
-
 			ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String, String>>();
 			NetworkInfo networkInfo = connManager.getActiveNetworkInfo();
 			String response = null;
@@ -228,16 +227,19 @@ public class Home extends Activity {
 
 	protected void onActivityResult(int requestCode, int resultCode, Intent data){
 		if(requestCode == ADD_ITEM_REQUEST) {
-			if (resultCode != RESULT_CANCELED){
-
+			if (resultCode == UpdateList.ACTION_CHANGE) {
+				new GetDataTask().execute(false);
 			}
 		} else if(resultCode == UPDATE_ITEM_REQUEST){
 			if (resultCode == UpdateList.ACTION_DELETE){
-
-			} else if (resultCode == UpdateList.ACTION_UPDATE) {
-
+				String[] item = data.getExtras().getStringArray(Home.ITEM_MESSAGE);
+				View view = itemsListView.findViewWithTag(item[2]).findViewWithTag(item[0]);
+				new DeleteItemTask().execute(view);
+			} else if (resultCode == UpdateList.ACTION_CHANGE) {
+				new GetDataTask().execute(false);
 			}
 		}
+		
 	}
 
 	private class CheckItemListener implements OnClickListener{
