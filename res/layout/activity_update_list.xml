@@ -8,6 +8,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content" >
 
+        <!-- Text is replaced in code based on situation (add item vs. update item) -->
         <TextView
             android:id="@+id/dialog_title"
             android:layout_width="0dp"

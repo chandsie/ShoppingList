@@ -1,6 +1,7 @@
 package com.shreyaschand.czshopper;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -8,6 +9,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+
+import javax.net.ssl.HttpsURLConnection;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -36,8 +39,11 @@ import com.handmark.pulltorefresh.library.PullToRefreshScrollView;
 
 public class Home extends Activity {
 
+	// Constant fields for 
 	protected static final String FILENAME = "items.json";
-	protected static final String URL = "http://czshopper.herokuapp.com/items";
+	protected static final String URL = "https://czshopper.herokuapp.com/items";
+	
+	// Constants for message passing between activities
 	protected static final String ITEM_MESSAGE = "com.shreyaschand.czshopper.UPDATE_ITEM_MESSAGE";
 	protected static final int HTTP_OK = 200;
 	private static final int ADD_ITEM_REQUEST = 41;
@@ -55,6 +61,7 @@ public class Home extends Activity {
 
 		findViewById(R.id.add_button).setOnClickListener(new AddItemListener());
 
+		// Save a reference to the layout where the category layouts will be inserted
 		itemsListView = (LinearLayout) findViewById(R.id.list);
 
 		// Pre-fetch and save the inflater; used to create layout for new list elements
@@ -62,32 +69,39 @@ public class Home extends Activity {
 		// Pre-fetch and save the connection manager; used to check connectivity when refreshing
 		connManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
 
+		// Set up the "pull-to-refresh" functionality
 		pullToRefreshView = (PullToRefreshScrollView) findViewById(R.id.list_pull__scroller);
 		pullToRefreshView.setOnRefreshListener(new OnRefreshListener<ScrollView>() {
 			public void onRefresh(PullToRefreshBase<ScrollView> refreshView) {
-				new GetDataTask().execute(true);
+				new GetDataTask().execute(true); // Get data from the network
 			}
 		});
 
-		new GetDataTask().execute(false);
+		new GetDataTask().execute(false); // Get data, not from the network, but from the local file
 	}
 
 	private class GetDataTask extends AsyncTask<Boolean, Integer, ArrayList<HashMap<String, String>>> {
 
-		@Override
+		/**
+		 * Get data for the list, either from the network or local file as specified by {@code networkRefresh}
+		 * 
+		 * @param	networkRefresh	The first element specifies whether or not an attempt
+		 * should be made to retrieve data from the network. If it is {@code true}, and an
+		 * active connection is available data will be fetched from the online server, otherwise
+		 * the local file is used.
+		 */
 		protected ArrayList<HashMap<String, String>> doInBackground(Boolean... networkRefresh) {
-			ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String, String>>();
 			NetworkInfo networkInfo = connManager.getActiveNetworkInfo();
 			String response = null;
 
 			if (networkRefresh[0] && networkInfo != null && networkInfo.isConnected()) {
 				// Fetch updates from server if asked to do so and if network is available
 				try {
-					HttpURLConnection conn = (HttpURLConnection) new URL(URL+".json").openConnection();
+					HttpsURLConnection conn = (HttpsURLConnection) new URL(URL+".json").openConnection();
 					conn.setConnectTimeout(5 * 1000);
 					conn.setRequestMethod("GET");
 					conn.setRequestProperty("Accept", "application/json");
-					conn.setRequestProperty("X-CZ-Authorization", "quqSxtRqyBowMcz46qKr");
+					conn.setRequestProperty("X-CZ-Authorization", getString(R.string.authToken));
 					conn.connect();
 					BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
 					response = br.readLine();
@@ -101,18 +115,19 @@ public class Home extends Activity {
 					return null;
 				}
 			} else {
-				// Use saved values from db
+				// Use saved values from local file
 				try {
 					BufferedReader inFile = new BufferedReader(new InputStreamReader(openFileInput(FILENAME)));
 					response = inFile.readLine();
 					inFile.close();
 				} catch (IOException e) {
 					// Error finding, reading or closing the file.
-					//publishProgress(R.string.file?_error);
-					//return null;
+					publishProgress(R.string.file_error);
+					return null;
 				}
 			}
 
+			ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String, String>>();
 			if(response != null){
 				// Convert the raw string response into an array of JSON objects
 				JSONArray jsonData = null;
@@ -144,44 +159,29 @@ public class Home extends Activity {
 			return result;
 		}
 
+		/**
+		 * Display any error messages propagated while executing doInBackground
+		 */
 		protected void onProgressUpdate(Integer... errorID){
 			Toast.makeText(Home.this, getString(errorID[0]), Toast.LENGTH_SHORT).show();
 		}
 
 		@Override
 		protected void onPostExecute(ArrayList<HashMap<String, String>> items) {
-			// Call onRefreshComplete when the list has been refreshed.
-			pullToRefreshView.onRefreshComplete();
 			super.onPostExecute(items);
 
-			if(items == null || items.size() == 0) {
-				return;
-			}
 			// Clear all entries in the view
 			itemsListView.removeAllViews();
+			
+			if(items == null || items.size() == 0) {
+				// There was an error, or there no items in the list.
+				// In either case, nothing needs to be done.
+				pullToRefreshView.onRefreshComplete();
+				return;
+			}
 
 			for(HashMap<String, String> item : items) {
-				String category = item.get("category");
-				LinearLayout categoryLayout = (LinearLayout) itemsListView.findViewWithTag(category);
-				// if not found, create a new layout for the category
-				if (categoryLayout == null) {
-					categoryLayout = (LinearLayout) inflater.inflate(R.layout.category_group, null);
-					categoryLayout.setTag(category);
-
-					// inflate an item view,
-					LinearLayout categoryHeader = (LinearLayout) inflater.inflate(R.layout.list_item, null);
-					// remove the checkbox 
-					categoryHeader.removeViewAt(0);
-					// remove the button
-					categoryHeader.removeViewAt(1);
-					// set the category text
-					// the textview is the only element in the layout, thus at index 0
-					((TextView)categoryHeader.getChildAt(0)).setText(category);
-
-					categoryLayout.addView(categoryHeader);
-					itemsListView.addView(categoryLayout);
-				}
-
+				LinearLayout categoryLayout = getOrCreateCategory(item.get("category"));
 
 				String id = item.get("id");
 				LinearLayout itemLayout =  (LinearLayout) inflater.inflate(R.layout.list_item, null);
@@ -197,9 +197,30 @@ public class Home extends Activity {
 
 				((LinearLayout) categoryLayout).addView(itemLayout);
 
-
 			}
+			
+			pullToRefreshView.onRefreshComplete();
+			
+		}
 
+		private LinearLayout getOrCreateCategory(String category) {
+			LinearLayout categoryLayout = (LinearLayout) itemsListView.findViewWithTag(category);
+			// If there's already a layout for the category use it, otherwise create a new one
+			if (categoryLayout == null) {
+				categoryLayout = (LinearLayout) inflater.inflate(R.layout.category_group, null);
+				categoryLayout.setTag(category);
+
+				// Inflate an item view and remove all but the textview
+				LinearLayout categoryHeader = (LinearLayout) inflater.inflate(R.layout.list_item, null);
+				categoryHeader.removeViewAt(0);
+				categoryHeader.removeViewAt(1);
+				// The textview is the only element in the layout, thus at index 0
+				((TextView)categoryHeader.getChildAt(0)).setText(category);
+
+				categoryLayout.addView(categoryHeader);
+				itemsListView.addView(categoryLayout);
+			}
+			return categoryLayout;
 		}
 	}
 
@@ -278,12 +299,42 @@ public class Home extends Activity {
 			if (networkInfo != null && networkInfo.isConnected()) {
 				// Fetch updates from server if asked to do so and if network is available
 				try {
-					HttpURLConnection conn = (HttpURLConnection) new URL(URL+"/" + item.getTag() + ".json").openConnection();
+					HttpsURLConnection conn = (HttpsURLConnection) new URL(URL+"/" + item.getTag() + ".json").openConnection();
 					conn.setConnectTimeout(5 * 1000);
 					conn.setRequestMethod("DELETE");
-					conn.setRequestProperty("X-CZ-Authorization", "quqSxtRqyBowMcz46qKr");
+					conn.setRequestProperty("X-CZ-Authorization", getString(R.string.authToken));
 					conn.connect();
 					if(conn.getResponseCode() == HTTP_OK){
+						// Get the saved JSON and delete the item
+						try {
+							JSONArray list = null;
+							try {
+								BufferedReader inFile = new BufferedReader(new InputStreamReader(openFileInput(Home.FILENAME)));
+								list = new JSONArray(inFile.readLine());
+								inFile.close();
+							} catch (FileNotFoundException e) {
+								publishProgress(R.string.file_error);
+							} catch (JSONException e) {publishProgress(R.string.json_error);
+							}
+							
+							
+							for(int i = 0; i < list.length(); i++){
+								// Search through the list and find the item
+								if (list.getJSONObject(i).getInt("id") == (Integer)item.getTag()) {
+									// Once found, replace it with the new version
+									list.put(i, null);
+									break;
+								}
+							}
+							
+							FileOutputStream outFile = openFileOutput(Home.FILENAME, Context.MODE_PRIVATE);
+							outFile.write(list.toString().getBytes());
+							outFile.close();
+						} catch (JSONException e) {
+							// Despite the error, the deletion process was a success and we can still return true
+							// This error only means that the offline cache is out of sync with the server. This
+							// will be fixed at the next refresh. The user doesn't need to know about this error.
+						}
 						return true;
 					} else {
 						publishProgress(R.string.delete_error);
@@ -308,7 +359,7 @@ public class Home extends Activity {
 				// if the category layout now only contains it's title, delete it
 				if(category.getChildCount() == 1){
 					((LinearLayout)category.getParent()).removeView(category);
-				}
+				}				
 			}
 		}
 
