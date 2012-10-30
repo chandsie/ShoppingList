@@ -215,13 +215,15 @@ public class Home extends Activity {
 	private class AddItemListener implements OnClickListener {
 		public void onClick(View v) {
 			Intent intent = new Intent(Home.this, UpdateList.class);
-			intent.putExtra(Home.ITEM_MESSAGE, (String) null);
+			// Null item signals a request to add an item rather than updating an existing one
+			intent.putExtra(Home.ITEM_MESSAGE, (String[]) null);
 			startActivityForResult(intent, ADD_ITEM_REQUEST);
 		}
 	}
 
 	private class EditItemListener implements OnClickListener{
 		public void onClick(View v) {
+			// Create the item descriptor string array
 			LinearLayout itemLayout = (LinearLayout) v.getParent();
 			String itemID = (String) itemLayout.getTag();
 			String itemName = (String) ((TextView)itemLayout.getChildAt(1)).getText();
@@ -239,7 +241,7 @@ public class Home extends Activity {
 			if (resultCode == UpdateList.ACTION_CHANGE) {
 				new GetDataTask().execute(false);
 			}
-		} else if(resultCode == UPDATE_ITEM_REQUEST){
+		} else if(requestCode == UPDATE_ITEM_REQUEST){
 			if (resultCode == UpdateList.ACTION_DELETE){
 				String[] item = data.getExtras().getStringArray(Home.ITEM_MESSAGE);
 				View view = itemsListView.findViewWithTag(item[2]).findViewWithTag(item[0]);
@@ -308,7 +310,7 @@ public class Home extends Activity {
 
 							for(int i = 0; i < list.length(); i++){
 								// Search through the list and find the item
-								if (list.getJSONObject(i).getInt("id") == (Integer)item.getTag()) {
+								if (list.getJSONObject(i).getString("id").equals(item.getTag())) {
 									// Once found, replace it with the new version
 									list.put(i, null);
 									break;

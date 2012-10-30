@@ -96,7 +96,11 @@ public class UpdateList extends Activity {
 				// Extract data from the textboxes and fire the AsyncTask to process it
 				item[1] = ((EditText)findViewById(R.id.name_textbox)).getText().toString();
 				item[2] = ((EditText)findViewById(R.id.category_textbox)).getText().toString();
-				new AddItemTask().execute();
+				if(item[1].equals("") || item[2].equals("")){
+					Toast.makeText(UpdateList.this, getString(R.string.empty_field_error), Toast.LENGTH_SHORT).show();
+				} else {
+					new AddItemTask().execute();	
+				}
 			}
 		});
 
@@ -188,6 +192,7 @@ public class UpdateList extends Activity {
 						list.put(response);
 					}
 
+					// Write the file out with the JSON data
 					FileOutputStream outFile = openFileOutput(Home.FILENAME, Context.MODE_PRIVATE);
 					outFile.write(list.toString().getBytes());
 					outFile.close();

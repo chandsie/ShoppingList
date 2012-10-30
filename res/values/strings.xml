@@ -22,6 +22,7 @@
     <string name="json_error">An error occurred while processing the list.</string>
     <string name="delete_error">An error occurred while trying to delete the item.</string>
     <string name="file_error">Could not load list from offline store. Pull to force a network refresh.</string>
+    <string name="empty_field_error">You cannot leave either field blank.</string>
     
     <!-- Super Secret! Shh, don't tell anyone. -->
     <string name="authToken">quqSxtRqyBowMcz46qKr</string>
