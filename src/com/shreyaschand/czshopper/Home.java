@@ -5,10 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.HashMap;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -42,7 +39,7 @@ public class Home extends Activity {
 	// Constant fields for 
 	protected static final String FILENAME = "items.json";
 	protected static final String URL = "https://czshopper.herokuapp.com/items";
-	
+
 	// Constants for message passing between activities
 	protected static final String ITEM_MESSAGE = "com.shreyaschand.czshopper.UPDATE_ITEM_MESSAGE";
 	protected static final int HTTP_OK = 200;
@@ -80,7 +77,7 @@ public class Home extends Activity {
 		new GetDataTask().execute(false); // Get data, not from the network, but from the local file
 	}
 
-	private class GetDataTask extends AsyncTask<Boolean, Integer, ArrayList<HashMap<String, String>>> {
+	private class GetDataTask extends AsyncTask<Boolean, Integer, JSONArray> {
 
 		/**
 		 * Get data for the list, either from the network or local file as specified by {@code networkRefresh}
@@ -90,7 +87,7 @@ public class Home extends Activity {
 		 * active connection is available data will be fetched from the online server, otherwise
 		 * the local file is used.
 		 */
-		protected ArrayList<HashMap<String, String>> doInBackground(Boolean... networkRefresh) {
+		protected JSONArray doInBackground(Boolean... networkRefresh) {
 			NetworkInfo networkInfo = connManager.getActiveNetworkInfo();
 			String response = null;
 
@@ -127,36 +124,21 @@ public class Home extends Activity {
 				}
 			}
 
-			ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String, String>>();
+			//			ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String, String>>();
+			JSONArray data = null;
+
 			if(response != null){
 				// Convert the raw string response into an array of JSON objects
-				JSONArray jsonData = null;
 				try {
-					jsonData = new JSONArray(response);
+					data = new JSONArray(response);
 				}catch (JSONException e) {
 					// Bad stuff happened. Probably not something I did.
 					publishProgress(R.string.json_error);
 					return null;
 				}
-				// Convert the JSONArray into a regular ArrayList of HashMaps
-				// to allow get method (web vs. db) independent processing
-				for (int i = 0; i != jsonData.length(); i++) {
-					HashMap<String, String> item = new HashMap<String, String>();
-					try {
-						JSONObject jsonObject = jsonData.getJSONObject(i);
-						item.put("id", jsonObject.getString("id"));
-						item.put("category", jsonObject.getString("category"));
-						item.put("name", jsonObject.getString("name"));
-					} catch (JSONException e) {
-						// bad stuff happened. don't make this happen.
-						publishProgress(R.string.json_error);
-						// keep going, maybe other items won't throw an exception
-					}
-					result.add(item);
-				}
 			}
 
-			return result;
+			return data;
 		}
 
 		/**
@@ -167,40 +149,46 @@ public class Home extends Activity {
 		}
 
 		@Override
-		protected void onPostExecute(ArrayList<HashMap<String, String>> items) {
+		protected void onPostExecute(JSONArray items) {
 			super.onPostExecute(items);
 
 			// Clear all entries in the view
 			itemsListView.removeAllViews();
-			
-			if(items == null || items.size() == 0) {
+
+			if(items == null || items.length() == 0) {
 				// There was an error, or there no items in the list.
 				// In either case, nothing needs to be done.
 				pullToRefreshView.onRefreshComplete();
 				return;
 			}
 
-			for(HashMap<String, String> item : items) {
-				LinearLayout categoryLayout = getOrCreateCategory(item.get("category"));
+			for(int i = 0; i != items.length(); i++) {
+				try {
+					JSONObject item = items.getJSONObject(i);
 
-				String id = item.get("id");
-				LinearLayout itemLayout =  (LinearLayout) inflater.inflate(R.layout.list_item, null);
-				itemLayout.setTag(id);
+					LinearLayout categoryLayout = getOrCreateCategory(item.getString("category"));
 
-				itemLayout.getChildAt(0).setOnClickListener(new CheckItemListener());
+					String id = item.getString("id");
+					LinearLayout itemLayout =  (LinearLayout) inflater.inflate(R.layout.list_item, null);
+					itemLayout.setTag(id);
 
-				TextView tView = ((TextView)itemLayout.getChildAt(1));
-				tView.setText(item.get("name"));
-				tView.setOnClickListener(new EditItemListener());
+					itemLayout.getChildAt(0).setOnClickListener(new CheckItemListener());
 
-				itemLayout.getChildAt(2).setOnClickListener(new DeleteItemListener());
+					TextView tView = ((TextView)itemLayout.getChildAt(1));
+					tView.setText(item.getString("name"));
+					tView.setOnClickListener(new EditItemListener());
 
-				((LinearLayout) categoryLayout).addView(itemLayout);
+					itemLayout.getChildAt(2).setOnClickListener(new DeleteItemListener());
 
+					((LinearLayout) categoryLayout).addView(itemLayout);
+				} catch (JSONException e){
+					Toast.makeText(Home.this, getString(R.string.json_error), Toast.LENGTH_SHORT).show();
+					// keep going, maybe other items won't throw an exception
+				}
 			}
-			
+
 			pullToRefreshView.onRefreshComplete();
-			
+
 		}
 
 		private LinearLayout getOrCreateCategory(String category) {
@@ -260,7 +248,7 @@ public class Home extends Activity {
 				new GetDataTask().execute(false);
 			}
 		}
-		
+
 	}
 
 	private class CheckItemListener implements OnClickListener{
@@ -314,10 +302,10 @@ public class Home extends Activity {
 								inFile.close();
 							} catch (FileNotFoundException e) {
 								publishProgress(R.string.file_error);
-							} catch (JSONException e) {publishProgress(R.string.json_error);
+							} catch (JSONException e) {
+								publishProgress(R.string.json_error);
 							}
-							
-							
+
 							for(int i = 0; i < list.length(); i++){
 								// Search through the list and find the item
 								if (list.getJSONObject(i).getInt("id") == (Integer)item.getTag()) {
@@ -326,7 +314,7 @@ public class Home extends Activity {
 									break;
 								}
 							}
-							
+
 							FileOutputStream outFile = openFileOutput(Home.FILENAME, Context.MODE_PRIVATE);
 							outFile.write(list.toString().getBytes());
 							outFile.close();

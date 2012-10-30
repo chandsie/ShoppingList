@@ -37,16 +37,16 @@ public class UpdateList extends Activity {
 	public static final String DELETE_MESSAGE = "com.shreyaschand.czshopper.DELETE_ITEM_MESSAGE";
 	public static final int ACTION_DELETE = 43;
 	public static final int ACTION_CHANGE = 44;
-	
+
 	private ConnectivityManager connManager;
 
 	private String[] item;
-	
+
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
 		// Set up the layout, remove the titlebar, set the width to fill the parent
-		
+
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
 		setContentView(R.layout.activity_update_list);
 
@@ -57,7 +57,7 @@ public class UpdateList extends Activity {
 		// Pre-fetch and save the connection manager; used to check connectivity when refreshing
 		connManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
 
-		
+
 		Button deleteButton = (Button) findViewById(R.id.delete_button);
 		Button addButton = (Button) findViewById(R.id.add_button);
 		TextView title = (TextView) findViewById(R.id.dialog_title);
@@ -90,7 +90,7 @@ public class UpdateList extends Activity {
 			addButton.setText(getString(R.string.update));
 			title.setText(getString(R.string.update_item_title));
 		}
-		
+
 		addButton.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
 				// Extract data from the textboxes and fire the AsyncTask to process it
@@ -99,7 +99,7 @@ public class UpdateList extends Activity {
 				new AddItemTask().execute();
 			}
 		});
-		
+
 		findViewById(R.id.cancel_button).setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
 				setResult(RESULT_CANCELED);
@@ -116,7 +116,7 @@ public class UpdateList extends Activity {
 		 */
 		protected Boolean doInBackground(Void... params) {
 			NetworkInfo networkInfo = connManager.getActiveNetworkInfo();
-			
+
 			// Fetch updates from server if asked to do so and if network is available
 			if (networkInfo != null && networkInfo.isConnected()) {
 				try {
@@ -127,7 +127,7 @@ public class UpdateList extends Activity {
 						url += "/" + item[0];
 					}
 					url += ".json";
-					
+
 					// Setup the connection to the server and connect to it
 					HttpsURLConnection conn = (HttpsURLConnection) new URL(url).openConnection();
 					conn.setConnectTimeout(5 * 1000);
@@ -143,25 +143,25 @@ public class UpdateList extends Activity {
 					conn.setRequestProperty("Content-type", "application/json");
 					conn.setRequestProperty("X-CZ-Authorization", getString(R.string.authToken));
 					conn.connect();
-					
+
 					OutputStreamWriter outStream = new OutputStreamWriter(conn.getOutputStream());
-					
+
 					// Create the JSON to send to the server
 					JSONObject innerObj = new JSONObject();
 					innerObj.put("name", item[1]);
 					innerObj.put("category", item[2]);
 					JSONObject outerObj = new JSONObject();
 					outerObj.put("item", innerObj);
-					
+
 					//Send the JSON and close the stream
 					outStream.write(outerObj.toString());
 					outStream.close();
-					
+
 					// Get the response from the server and convert it to a JSON object
 					BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
 					JSONObject response = new JSONObject(br.readLine());
 					br.close();
-					
+
 					// Get the saved JSON and update it with the new item
 					JSONArray list = null;
 					try {
@@ -172,8 +172,8 @@ public class UpdateList extends Activity {
 						// File doesn't already exist, so just write the current item into the new file
 						list = new JSONArray();
 					}
-					
-					
+
+
 					for(int i = 0; item[0] != null && i < list.length(); i++){
 						// Search through the list and find the item
 						if (list.getJSONObject(i).getInt("id") == response.getInt("id")) {
@@ -182,16 +182,16 @@ public class UpdateList extends Activity {
 							break;
 						}
 					}
-					
+
 					if(item[0] == null || list.length() == 0){
 						// If it's a new item or the file doesn't exist, just insert it into the (new) file
 						list.put(response);
 					}
-					
+
 					FileOutputStream outFile = openFileOutput(Home.FILENAME, Context.MODE_PRIVATE);
 					outFile.write(list.toString().getBytes());
 					outFile.close();
-					
+
 				} catch (IOException ioe) {
 					publishProgress(R.string.network_error);
 					return false;
@@ -199,7 +199,7 @@ public class UpdateList extends Activity {
 					publishProgress(R.string.json_error);
 					return false;
 				}
-				
+
 			} else {
 				publishProgress(R.string.network_error);
 				return false;

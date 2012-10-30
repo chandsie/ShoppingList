@@ -19,8 +19,8 @@
 
     <!-- Error Strings -->
     <string name="network_error">A network error occured. Please try again later.</string>
-    <string name="json_error">An error occurred while processing the list. Please try again later.</string>
-    <string name="delete_error">An error occurred while trying to delete the item. Please try again later.</string>
+    <string name="json_error">An error occurred while processing the list.</string>
+    <string name="delete_error">An error occurred while trying to delete the item.</string>
     <string name="file_error">Could not load list from offline store. Pull to force a network refresh.</string>
     
     <!-- Super Secret! Shh, don't tell anyone. -->
