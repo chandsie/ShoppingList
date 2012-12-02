@@ -36,7 +36,7 @@ import com.handmark.pulltorefresh.library.PullToRefreshScrollView;
 
 public class Home extends Activity {
 
-	// Constant fields for 
+	// Constant fields for saving and updating the list
 	protected static final String FILENAME = "items.json";
 	protected static final String URL = "https://czshopper.herokuapp.com/items";
 
@@ -103,14 +103,20 @@ public class Home extends Activity {
 					BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
 					response = br.readLine();
 					br.close();
+				} catch (IOException ioe) {
+					publishProgress(R.string.network_error);
+					return null;
+				}	
+				try {
 					// Save the JSON for future offline access
 					FileOutputStream outFile = openFileOutput(FILENAME, Context.MODE_PRIVATE);
 					outFile.write(response.getBytes());
 					outFile.close();
-				} catch (IOException ioe) {
-					publishProgress(R.string.network_error);
-					return null;
+				} catch (IOException e) {
+					// Error in trying to save the JSON
+					// Silently ignore it. Saving will be retried at next refresh.
 				}
+				
 			} else {
 				// Use saved values from local file
 				try {
@@ -124,7 +130,6 @@ public class Home extends Activity {
 				}
 			}
 
-			//			ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String, String>>();
 			JSONArray data = null;
 
 			if(response != null){
@@ -152,16 +157,17 @@ public class Home extends Activity {
 		protected void onPostExecute(JSONArray items) {
 			super.onPostExecute(items);
 
-			// Clear all entries in the view
-			itemsListView.removeAllViews();
-
 			if(items == null || items.length() == 0) {
-				// There was an error, or there no items in the list.
+				// There was an error, or there are no items in the list.
 				// In either case, nothing needs to be done.
 				pullToRefreshView.onRefreshComplete();
 				return;
 			}
 
+			// Clear all entries in the view
+			itemsListView.removeAllViews();
+			
+			//Loop through each entry and add it to the list in the right category
 			for(int i = 0; i != items.length(); i++) {
 				try {
 					JSONObject item = items.getJSONObject(i);
@@ -254,11 +260,11 @@ public class Home extends Activity {
 	}
 
 	private class CheckItemListener implements OnClickListener{
-		public void onClick(View v) {
-			LinearLayout itemLayout = (LinearLayout) v.getParent();
+		public void onClick(View checkBoxView) {
+			LinearLayout itemLayout = (LinearLayout) checkBoxView.getParent();
 			TextView textView = (TextView) itemLayout.getChildAt(1);
 
-			if (((CheckBox) v).isChecked()){
+			if (((CheckBox) checkBoxView).isChecked()){
 				// Apply the strike_thru styling bit mask to strike off checked items in the list
 				textView.setPaintFlags(textView.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
 				itemLayout.getChildAt(2).setVisibility(View.VISIBLE);
@@ -287,7 +293,6 @@ public class Home extends Activity {
 			item = view[0];
 			NetworkInfo networkInfo = connManager.getActiveNetworkInfo();
 			if (networkInfo != null && networkInfo.isConnected()) {
-				// Fetch updates from server if asked to do so and if network is available
 				try {
 					HttpsURLConnection conn = (HttpsURLConnection) new URL(URL+"/" + item.getTag() + ".json").openConnection();
 					conn.setConnectTimeout(5 * 1000);
@@ -295,6 +300,7 @@ public class Home extends Activity {
 					conn.setRequestProperty("X-CZ-Authorization", getString(R.string.authToken));
 					conn.connect();
 					if(conn.getResponseCode() == HTTP_OK){
+						// Deletion was successful
 						// Get the saved JSON and delete the item
 						try {
 							JSONArray list = null;
@@ -311,12 +317,13 @@ public class Home extends Activity {
 							for(int i = 0; i < list.length(); i++){
 								// Search through the list and find the item
 								if (list.getJSONObject(i).getString("id").equals(item.getTag())) {
-									// Once found, replace it with the new version
+									// Once found, replace it with null (i.e. delete it)
 									list.put(i, null);
 									break;
 								}
 							}
 
+							// Save the file
 							FileOutputStream outFile = openFileOutput(Home.FILENAME, Context.MODE_PRIVATE);
 							outFile.write(list.toString().getBytes());
 							outFile.close();
@@ -327,12 +334,15 @@ public class Home extends Activity {
 						}
 						return true;
 					} else {
+						// API returned an error, deletion was not successful
 						publishProgress(R.string.delete_error);
 					}
 				} catch (IOException ioe) {
+					// Error occurred while trying to connect to the server
 					publishProgress(R.string.network_error);
 				}
 			} else {
+				// Network connection is not available for item deletion
 				publishProgress(R.string.network_error);
 			}
 			return false;
