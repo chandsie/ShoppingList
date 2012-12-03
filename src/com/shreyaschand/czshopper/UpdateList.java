@@ -5,7 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
+import java.io.OutputStream;
 import java.net.URL;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -41,12 +41,15 @@ public class UpdateList extends Activity {
 	private ConnectivityManager connManager;
 
 	private String[] item;
-
+	// Three element array that describes the item:
+	// Index 0: ID
+	// Index 1: Name
+	// Index 2: Category
+	
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
 		// Set up the layout, remove the titlebar, set the width to fill the parent
-
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
 		setContentView(R.layout.activity_update_list);
 
@@ -83,10 +86,12 @@ public class UpdateList extends Activity {
 					finish();
 				}
 			});
-			// ...initialize the texboxes...
+			
+			// initialize the texboxes...
 			((EditText)findViewById(R.id.category_textbox)).setText(item[2]);
 			((EditText)findViewById(R.id.name_textbox)).setText(item[1]);
-			// ...and set the appropriate button text and title
+			
+			// and set the appropriate button text and title
 			addButton.setText(getString(R.string.update));
 			title.setText(getString(R.string.update_item_title));
 		}
@@ -121,7 +126,7 @@ public class UpdateList extends Activity {
 		protected Boolean doInBackground(Void... params) {
 			NetworkInfo networkInfo = connManager.getActiveNetworkInfo();
 
-			// Fetch updates from server if asked to do so and if network is available
+			// Check for internet connectivity before connecting
 			if (networkInfo != null && networkInfo.isConnected()) {
 				try {
 					// Craft the url based on whether adding or updating
@@ -148,7 +153,7 @@ public class UpdateList extends Activity {
 					conn.setRequestProperty("X-CZ-Authorization", getString(R.string.authToken));
 					conn.connect();
 
-					OutputStreamWriter outStream = new OutputStreamWriter(conn.getOutputStream());
+					OutputStream outStream = conn.getOutputStream();
 
 					// Create the JSON to send to the server
 					JSONObject innerObj = new JSONObject();
@@ -158,7 +163,7 @@ public class UpdateList extends Activity {
 					outerObj.put("item", innerObj);
 
 					//Send the JSON and close the stream
-					outStream.write(outerObj.toString());
+					outStream.write(outerObj.toString().getBytes());
 					outStream.close();
 
 					// Get the response from the server and convert it to a JSON object
@@ -177,19 +182,18 @@ public class UpdateList extends Activity {
 						list = new JSONArray();
 					}
 
-
-					for(int i = 0; item[0] != null && i < list.length(); i++){
-						// Search through the list and find the item
-						if (list.getJSONObject(i).getInt("id") == response.getInt("id")) {
-							// Once found, replace it with the new version
-							list.put(i, response);
-							break;
-						}
-					}
-
+					// If it's a new item or the file doesn't exist, just insert it into the (new) file
 					if(item[0] == null || list.length() == 0){
-						// If it's a new item or the file doesn't exist, just insert it into the (new) file
 						list.put(response);
+					} else {
+						// Search through the list and find the item
+						for(int i = 0; i < list.length(); i++){
+							if (list.getJSONObject(i).getInt("id") == response.getInt("id")) {
+								// Once found, replace it with the new version
+								list.put(i, response);
+								break;
+							}
+						}
 					}
 
 					// Write the file out with the JSON data
